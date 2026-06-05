@@ -977,12 +977,14 @@
               <div class="task-title-row">
                 <div class="task-title${overdue ? ' overdue' : ''}">${escHtml(t.title)}</div>
                 <span class="task-date">📅 ${formatDate(t.date)}</span>
-                <span style="font-size:0.78rem;font-weight:600;color:var(--muted);white-space:nowrap">Complete</span>
-                <input type="checkbox" class="task-checkbox" data-id="${t.id}" title="Mark complete" />
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
                 <button class="btn-details" data-details="${t.id}">Details</button>
-                <button class="btn-edit" data-edit="${t.id}">Edit</button>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:0.78rem;font-weight:600;color:var(--muted);white-space:nowrap">Complete</span>
+                  <input type="checkbox" class="task-checkbox" data-id="${t.id}" title="Mark complete" />
+                  <button class="btn-edit" data-edit="${t.id}">Edit</button>
+                </div>
               </div>
               ${t.due ? `<div class="task-meta">
                 <span class="due-date${overdue ? ' overdue' : ''}">⏰ Due ${formatDate(t.due)}${overdue ? ' — Overdue' : ''}</span>
