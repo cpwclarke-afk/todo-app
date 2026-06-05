@@ -980,13 +980,13 @@
                 <span style="font-size:0.78rem;font-weight:600;color:var(--muted);white-space:nowrap">Complete</span>
                 <input type="checkbox" class="task-checkbox" data-id="${t.id}" title="Mark complete" />
               </div>
-              <div style="margin-top:6px"><button class="btn-details" data-details="${t.id}">Details</button></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <button class="btn-details" data-details="${t.id}">Details</button>
+                <button class="btn-edit" data-edit="${t.id}">Edit</button>
+              </div>
               ${t.due ? `<div class="task-meta">
                 <span class="due-date${overdue ? ' overdue' : ''}">⏰ Due ${formatDate(t.due)}${overdue ? ' — Overdue' : ''}</span>
               </div>` : ''}
-            </div>
-            <div class="task-actions">
-              <button class="btn-edit" data-edit="${t.id}">Edit</button>
             </div>
           </div>
         </div>`;
