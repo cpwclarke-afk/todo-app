@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>To-Do List</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f5f5;
+      --surface: #ffffff;
+      --primary: #4f46e5;
+      --primary-light: #ede9fe;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --complete-bg: #f0fdf4;
+      --complete-border: #bbf7d0;
+      --danger: #ef4444;
+      --radius: 10px;
+      --shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Auth Screen ── */
+    #auth-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .auth-logo {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .auth-logo h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .auth-logo p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .auth-tab.active {
+      background: var(--surface);
+      color: var(--primary);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .auth-error {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      color: #b91c1c;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    .auth-success {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      color: #15803d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    /* ── App Shell ── */
+    #app-screen { display: none; flex-direction: column; min-height: 100vh; }
+    #app-screen.visible { display: flex; }
+
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 16px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-inner {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-email {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.8);
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-signout {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-signout:hover { background: rgba(255,255,255,0.25); }
+
+    .tabs {
+      display: flex;
+      justify-content: center;
+    }
+
+    .tabs-pill {
+      display: inline-flex;
+      background: rgba(0,0,0,0.2);
+      border-radius: 30px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .tab-btn {
+      padding: 7px 18px;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 26px;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .tab-btn .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.25);
+      border-radius: 20px;
+      padding: 1px 6px;
+      font-size: 0.7rem;
+      margin-left: 4px;
+    }
+
+    .tab-btn.active .badge { background: rgba(255,255,255,0.35); }
+
+    main {
+      flex: 1;
+      padding: 20px 16px;
+      max-width: 700px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Shared form styles ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--primary);
+    }
+
+    .field { margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="email"],
+    input[type="password"],
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--bg);
+      transition: border-color 0.15s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 11px 22px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1.5px solid var(--danger);
+      padding: 6px 12px;
+      font-size: 0.8rem;
+    }
+
+    .btn-danger:hover { background: #fef2f2; }
+
+    /* ── Task Items ── */
+    .task-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty-state p { font-size: 0.95rem; }
+
+    .task-item {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .task-item.completed-item {
+      border-left-color: #22c55e;
+      background: var(--complete-bg);
+    }
+
+    .task-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .task-checkbox {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .task-content { flex: 1; min-width: 0; }
+
+    .task-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .task-title {
+      font-size: 1rem;
+      font-weight: 600;
+      word-break: break-word;
+      flex: 1;
+    }
+
+    .task-title.done { text-decoration: line-through; color: var(--muted); }
+    .task-title.overdue { color: #b91c1c; }
+
+    .task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 5px;
+      align-items: center;
+    }
+
+    .task-date {
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .due-date {
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .due-date.overdue {
+      color: #b91c1c;
+      background: #fef2f2;
+      border-color: #fca5a5;
+      font-weight: 600;
+    }
+
+    .task-notes {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: #374151;
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 8px 10px;
+      word-break: break-word;
+      border: 1px solid var(--border);
+    }
+
+    .task-notes a { color: var(--primary); text-decoration: underline; }
+
+    .task-actions { display: flex; align-items: flex-start; margin-left: 10px; flex-shrink: 0; }
+
+    .btn-edit {
+      background: transparent;
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+      padding: 5px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-edit:hover { background: var(--primary-light); }
+
+    .btn-details {
+      background: transparent;
+      color: var(--muted);
+      border: 1.5px solid var(--border);
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-details:hover { background: var(--bg); border-color: var(--muted); }
+
+    .btn-back {
+      background: transparent;
+      color: var(--primary);
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+
+    .btn-back:hover { text-decoration: underline; }
+
+    .details-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .details-value {
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 16px;
+      word-break: break-word;
+    }
+
+    .details-notes {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      color: #374151;
+      word-break: break-word;
+      margin-bottom: 16px;
+    }
+
+    .details-notes a { color: var(--primary); text-decoration: underline; }
+
+    .details-empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 24px 0; }
+
+    /* ── Edit Modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      padding: 24px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      line-height: 1;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .modal-close:hover { background: var(--bg); }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-save {
+      flex: 1;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-save:hover { opacity: 0.9; }
+
+    .btn-delete {
+      background: transparent;
+      color: var(--danger);
+      border: 1.5px solid var(--danger);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-delete:hover { background: #fef2f2; }
+
+    .completed-date {
+      font-size: 0.78rem;
+      color: #16a34a;
+      background: #dcfce7;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid var(--complete-border);
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .page-header h2 { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .count-label { font-size: 0.8rem; color: var(--muted); }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-overlay {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      z-index: 100;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 1rem; }
+      .user-email { display: none; }
+      .tab-btn { padding: 7px 12px; font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>My To-Do List</h1>
+      <p>Sign in to access your tasks</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-signin" onclick="switchAuthTab('signin')">Sign In</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-success" id="auth-success"></div>
+
+    <div class="field">
+      <label for="auth-email">Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+
+    <div class="field">
+      <label for="auth-password">Password</label>
+      <input type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <div class="field" id="confirm-field" style="display:none">
+      <label for="auth-confirm">Confirm Password</label>
+      <input type="password" id="auth-confirm" placeholder="••••••••" autocomplete="new-password" />
+    </div>
+
+    <button class="btn btn-primary" id="auth-submit-btn" onclick="handleAuth()">Sign In</button>
+  </div>
+</div>
+
+<!-- ── APP SCREEN ── -->
+<div id="app-screen">
+  <header>
+    <div class="header-inner">
+      <div class="header-top">
+        <h1>My To-Do List</h1>
+        <div class="user-info">
+          <span class="user-email" id="user-email-display"></span>
+          <button class="btn-signout" onclick="signOut()">Sign Out</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tabs-pill">
+          <button class="tab-btn active" data-tab="summary">
+            Summary <span class="badge" id="summary-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="add">Add Task</button>
+          <button class="tab-btn" data-tab="completed">
+            Completed <span class="badge" id="completed-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="details" id="details-tab-btn" style="display:none">Details</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ADD TASK -->
+    <div class="page" id="page-add">
+      <div class="card">
+        <h2>New Task</h2>
+        <div class="field">
+          <label for="task-title">Task Title *</label>
+          <input type="text" id="task-title" placeholder="What needs to be done?" />
+        </div>
+        <div class="field">
+          <label for="task-date">Date</label>
+          <input type="date" id="task-date" />
+        </div>
+        <div class="field">
+          <label for="task-due">Due Date <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+          <input type="date" id="task-due" />
+        </div>
+        <div class="field">
+          <label for="task-notes">Notes / Reference</label>
+          <textarea id="task-notes" placeholder="Add a URL, link, or any notes..."></textarea>
+        </div>
+        <button class="btn btn-primary" id="add-btn">Add Task</button>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div class="page active" id="page-summary">
+      <div class="page-header">
+        <h2>Open Tasks</h2>
+        <span class="count-label" id="summary-count"></span>
+      </div>
+      <div class="task-list" id="summary-list"></div>
+    </div>
+
+    <!-- COMPLETED -->
+    <div class="page" id="page-completed">
+      <div class="page-header">
+        <h2>Completed Tasks</h2>
+        <span class="count-label" id="completed-count"></span>
+      </div>
+      <div class="task-list" id="completed-list"></div>
+    </div>
+
+    <!-- DETAILS -->
+    <div class="page" id="page-details">
+      <div class="page-header">
+        <h2>Task Details</h2>
+        <button class="btn-back" onclick="switchToTab('summary')">← Back</button>
+      </div>
+      <div class="card" id="details-card">
+        <div class="details-empty">Select a task from the Summary to view its details.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Task</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="field">
+      <label for="edit-title">Task Title *</label>
+      <input type="text" id="edit-title" />
+    </div>
+    <div class="field">
+      <label for="edit-date">Date</label>
+      <input type="date" id="edit-date" />
+    </div>
+    <div class="field">
+      <label for="edit-due">Due Date <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input type="date" id="edit-due" />
+    </div>
+    <div class="field">
+      <label for="edit-notes">Notes / Reference</label>
+      <textarea id="edit-notes" placeholder="Add a URL, link, or any notes..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-save" id="edit-save-btn" onclick="saveEdit()">Save Changes</button>
+      <button class="btn-delete" onclick="deleteFromModal()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─────────────────────────────────────────────────────────────
+  // CONFIGURATION — replace these two values with your own
+  // ─────────────────────────────────────────────────────────────
+  const SUPABASE_URL  = 'https://ptnncjzozhsanjwaqyja.supabase.co';   // e.g. https://xyzxyz.supabase.co
+  const SUPABASE_ANON = 'sb_publishable_o_VJRsh02_PSnPDiirLZSw_NNJszz8B';
+  // ─────────────────────────────────────────────────────────────
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // ── Auth UI ──────────────────────────────────────────────────
+  let authMode = 'signin';
+
+  function switchAuthTab(mode) {
+    authMode = mode;
+    document.getElementById('tab-signin').classList.toggle('active', mode === 'signin');
+    document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+    document.getElementById('confirm-field').style.display = mode === 'signup' ? 'block' : 'none';
+    document.getElementById('auth-submit-btn').textContent = mode === 'signin' ? 'Sign In' : 'Create Account';
+    document.getElementById('auth-password').autocomplete = mode === 'signin' ? 'current-password' : 'new-password';
+    clearAuthMessages();
+  }
+
+  function clearAuthMessages() {
+    setAuthError('');
+    setAuthSuccess('');
+  }
+
+  function setAuthError(msg) {
+    const el = document.getElementById('auth-error');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  function setAuthSuccess(msg) {
+    const el = document.getElementById('auth-success');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  async function handleAuth() {
+    const email    = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const confirm  = document.getElementById('auth-confirm').value;
+    const btn      = document.getElementById('auth-submit-btn');
+
+    clearAuthMessages();
+
+    if (!email || !password) { setAuthError('Please enter your email and password.'); return; }
+    if (authMode === 'signup') {
+      if (password.length < 6) { setAuthError('Password must be at least 6 characters.'); return; }
+      if (password !== confirm) { setAuthError('Passwords do not match.'); return; }
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>' + (authMode === 'signin' ? 'Signing in…' : 'Creating account…');
+
+    if (authMode === 'signin') {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) { setAuthError(error.message); btn.disabled = false; btn.textContent = 'Sign In'; }
+    } else {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) {
+        setAuthError(error.message);
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      } else {
+        setAuthSuccess('Account created! Check your email to confirm, then sign in.');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+        switchAuthTab('signin');
+      }
+    }
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    document.getElementById('app-screen').classList.remove('visible');
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('auth-email').value = '';
+    document.getElementById('auth-password').value = '';
+  }
+
+  // ── Session listener ─────────────────────────────────────────
+  sb.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-screen').classList.add('visible');
+      document.getElementById('user-email-display').textContent = session.user.email;
+      initApp();
+    }
+  });
+
+  // ── Helpers ──────────────────────────────────────────────────
+  function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[+m - 1]} ${+d}, ${y}`;
+  }
+
+  function linkify(text) {
+    const esc = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return esc.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  }
+
+  function escHtml(str) {
+    return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('page-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  function switchToTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+    document.getElementById('page-' + name).classList.add('active');
+  }
+
+  // ── App init ──────────────────────────────────────────────────
+  function initApp() {
+    document.getElementById('task-date').value = todayISO();
+    loadAndRender();
+  }
+
+  // ── Supabase CRUD ─────────────────────────────────────────────
+  async function loadAndRender() {
+    document.getElementById('summary-list').innerHTML = '<div class="loading-overlay">Loading tasks…</div>';
+    document.getElementById('completed-list').innerHTML = '<div class="loading-overlay">Loading tasks…</div>';
+
+    const { data, error } = await sb
+      .from('tasks')
+      .select('*')
+      .order('created', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (error) { showToast('Error loading tasks.'); console.error(error); return; }
+    render(data || []);
+  }
+
+  function render(tasks) {
+    const today = todayISO();
+    const open = tasks.filter(t => !t.done);
+    const done = tasks.filter(t => t.done).sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''));
+
+    document.getElementById('summary-badge').textContent = open.length;
+    document.getElementById('completed-badge').textContent = done.length;
+    document.getElementById('summary-count').textContent = open.length === 1 ? '1 task' : `${open.length} tasks`;
+    document.getElementById('completed-count').textContent = done.length === 1 ? '1 task' : `${done.length} tasks`;
+
+    // open tasks
+    const sl = document.getElementById('summary-list');
+    if (open.length === 0) {
+      sl.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>No open tasks — you're all caught up!</p></div>`;
+    } else {
+      sl.innerHTML = open.map(t => {
+        const overdue = t.due && t.due < today;
+        return `
+        <div class="task-item" data-id="${t.id}">
+          <div class="task-header">
+            <div class="task-content">
+              <div class="task-title-row">
+                <div class="task-title${overdue ? ' overdue' : ''}">${escHtml(t.title)}</div>
+                <span class="task-date">📅 ${formatDate(t.date)}</span>
+                <span style="font-size:0.78rem;font-weight:600;color:var(--muted);white-space:nowrap">Complete</span>
+                <input type="checkbox" class="task-checkbox" data-id="${t.id}" title="Mark complete" />
+              </div>
+              <div style="margin-top:6px"><button class="btn-details" data-details="${t.id}">Details</button></div>
+              ${t.due ? `<div class="task-meta">
+                <span class="due-date${overdue ? ' overdue' : ''}">⏰ Due ${formatDate(t.due)}${overdue ? ' — Overdue' : ''}</span>
+              </div>` : ''}
+            </div>
+            <div class="task-actions">
+              <button class="btn-edit" data-edit="${t.id}">Edit</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // completed tasks
+    const cl = document.getElementById('completed-list');
+    if (done.length === 0) {
+      cl.innerHTML = `<div class="empty-state"><div class="icon">🗂️</div><p>No completed tasks yet.</p></div>`;
+    } else {
+      cl.innerHTML = done.map(t => `
+        <div class="task-item completed-item" data-id="${t.id}">
+          <div class="task-header">
+            <div class="task-content">
+              <div class="task-title-row">
+                <div class="task-title done">${escHtml(t.title)}</div>
+                <span class="task-date">📅 ${formatDate(t.date)}</span>
+                <input type="checkbox" class="task-checkbox" checked data-id="${t.id}" title="Mark incomplete" />
+              </div>
+              <div class="task-meta">
+                <span class="completed-date">✔ Done ${formatDate(t.completed_at)}</span>
+              </div>
+              ${t.notes ? `<div class="task-notes">${linkify(t.notes)}</div>` : ''}
+            </div>
+            <div class="task-actions">
+              <button class="btn-edit" data-edit="${t.id}">Edit</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+  }
+
+  // ── Add task ──────────────────────────────────────────────────
+  document.getElementById('add-btn').addEventListener('click', async () => {
+    const title = document.getElementById('task-title').value.trim();
+    if (!title) { showToast('Please enter a task title.'); document.getElementById('task-title').focus(); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Saving…';
+
+    const { error } = await sb.from('tasks').insert({
+      title,
+      date:    document.getElementById('task-date').value || todayISO(),
+      due:     document.getElementById('task-due').value || null,
+      notes:   document.getElementById('task-notes').value.trim() || null,
+      done:    false,
+      created: todayISO(),
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Add Task';
+
+    if (error) { showToast('Error saving task.'); console.error(error); return; }
+
+    document.getElementById('task-title').value = '';
+    document.getElementById('task-notes').value = '';
+    document.getElementById('task-due').value = '';
+    document.getElementById('task-date').value = todayISO();
+
+    showToast('Task added!');
+    await loadAndRender();
+    switchToTab('summary');
+  });
+
+  // ── Checkbox (complete / reopen) ──────────────────────────────
+  document.querySelector('main').addEventListener('change', async e => {
+    if (!e.target.matches('.task-checkbox')) return;
+    const id = e.target.dataset.id;
+    const checked = e.target.checked;
+
+    const { error } = await sb.from('tasks').update({
+      done: checked,
+      completed_at: checked ? todayISO() : null,
+    }).eq('id', id);
+
+    if (error) { showToast('Error updating task.'); console.error(error); return; }
+    showToast(checked ? 'Task completed!' : 'Task reopened.');
+    await loadAndRender();
+  });
+
+  // ── Delete ────────────────────────────────────────────────────
+  document.querySelector('main').addEventListener('click', async e => {
+    const del = e.target.closest('[data-delete]');
+    if (!del) return;
+    const id = del.dataset.delete;
+    const { error } = await sb.from('tasks').delete().eq('id', id);
+    if (error) { showToast('Error deleting task.'); console.error(error); return; }
+    showToast('Task deleted.');
+    await loadAndRender();
+  });
+
+  // ── Details tab ───────────────────────────────────────────────
+  document.querySelector('main').addEventListener('click', e => {
+    const btn = e.target.closest('[data-details]');
+    if (!btn) return;
+    openDetails(btn.dataset.details);
+  });
+
+  async function openDetails(id) {
+    const { data: t, error } = await sb.from('tasks').select('*').eq('id', id).single();
+    if (error || !t) { showToast('Could not load task details.'); return; }
+
+    const today = todayISO();
+    const overdue = t.due && t.due < today;
+
+    document.getElementById('details-card').innerHTML = `
+      <div class="details-label">Task</div>
+      <div class="details-value" style="font-size:1.05rem;font-weight:700;${overdue ? 'color:#b91c1c' : ''}">${escHtml(t.title)}</div>
+
+      <div class="details-label">Date Added</div>
+      <div class="details-value">📅 ${formatDate(t.date)}</div>
+
+      ${t.due ? `
+      <div class="details-label">Due Date</div>
+      <div class="details-value">
+        <span class="due-date${overdue ? ' overdue' : ''}">⏰ ${formatDate(t.due)}${overdue ? ' — Overdue' : ''}</span>
+      </div>` : ''}
+
+      <div class="details-label">Notes / Reference</div>
+      <div class="details-notes">${t.notes ? linkify(t.notes) : '<span style="color:var(--muted)">No notes added.</span>'}</div>
+
+      <button class="btn-edit" style="width:100%;justify-content:center" data-edit="${t.id}">Edit Task</button>
+    `;
+
+    document.getElementById('details-tab-btn').style.display = 'inline-block';
+    switchToTab('details');
+  }
+
+  // ── Edit modal ────────────────────────────────────────────────
+  let editingId = null;
+
+  document.querySelector('main').addEventListener('click', e => {
+    const btn = e.target.closest('[data-edit]');
+    if (!btn) return;
+    openModal(btn.dataset.edit);
+  });
+
+  async function openModal(id) {
+    const { data, error } = await sb.from('tasks').select('*').eq('id', id).single();
+    if (error || !data) { showToast('Could not load task.'); return; }
+    editingId = id;
+    document.getElementById('edit-title').value = data.title || '';
+    document.getElementById('edit-date').value  = data.date  || '';
+    document.getElementById('edit-due').value   = data.due   || '';
+    document.getElementById('edit-notes').value = data.notes || '';
+    document.getElementById('edit-modal').classList.add('open');
+    document.getElementById('edit-title').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('edit-modal').classList.remove('open');
+    editingId = null;
+  }
+
+  async function saveEdit() {
+    const title = document.getElementById('edit-title').value.trim();
+    if (!title) { document.getElementById('edit-title').focus(); showToast('Title cannot be empty.'); return; }
+    const btn = document.getElementById('edit-save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    const { error } = await sb.from('tasks').update({
+      title,
+      date:  document.getElementById('edit-date').value  || null,
+      due:   document.getElementById('edit-due').value   || null,
+      notes: document.getElementById('edit-notes').value.trim() || null,
+    }).eq('id', editingId);
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+    if (error) { showToast('Error saving changes.'); console.error(error); return; }
+    closeModal();
+    showToast('Task updated!');
+    await loadAndRender();
+  }
+
+  async function deleteFromModal() {
+    if (!editingId) return;
+    const { error } = await sb.from('tasks').delete().eq('id', editingId);
+    if (error) { showToast('Error deleting task.'); console.error(error); return; }
+    closeModal();
+    showToast('Task deleted.');
+    await loadAndRender();
+  }
+
+  // Close modal when clicking the backdrop
+  document.getElementById('edit-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('edit-modal')) closeModal();
+  });
+
+  // Enter key submits auth form
+  document.getElementById('auth-password').addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
+  document.getElementById('auth-confirm').addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth(); });
+</script>
+</body>
+</html>
